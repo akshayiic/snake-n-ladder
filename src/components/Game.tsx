@@ -48,10 +48,15 @@ const Box = ({
   </div>
 );
 
-const Dice = ({ onClick }: { onClick: any }) => {
+const Dice = ({ onClick, disabled }: { onClick: any; disabled?: boolean }) => {
   return (
     <div className="mt-4">
-      <Button variant={"outline"} onClick={onClick} className="pointer">
+      <Button
+        variant={"outline"}
+        onClick={onClick}
+        className={cn(disabled ? "cursor-not-allowed" : "cursor-pointer")}
+        disabled={disabled}
+      >
         Roll
       </Button>
     </div>
@@ -69,42 +74,67 @@ const cols = 10;
 
 export default function Game() {
   const [current, setCurrent] = useState(1);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [roll, setRoll] = useState<number | null>(null);
+  const [showRoll, setShowRoll] = useState(false);
 
   const animatingRef = useRef(false);
 
   const advance = async () => {
     if (animatingRef.current) return;
     animatingRef.current = true;
+    setIsAnimating(true);
 
-    const roll = Math.floor(Math.random() * 6) + 1;
+    try {
+      const r = Math.floor(Math.random() * 6) + 1;
+      setRoll(r);
+      setShowRoll(true);
 
-    const start = current;
-    const target = Math.min(100, start + roll);
-    const steps = target - start || 0;
-    const perStepMs = steps
-      ? Math.max(40, Math.floor(ANIM_TOTAL_MS / steps))
-      : ANIM_TOTAL_MS;
+      const hideId = setTimeout(() => setShowRoll(false), 1200);
 
-    for (let i = 0; i < steps; i++) {
-      await sleep(perStepMs);
-      setCurrent((prev) => Math.min(100, prev + 1));
+      const start = current;
+      const target = Math.min(100, start + r);
+      const steps = target - start || 0;
+      const perStepMs = steps
+        ? Math.max(40, Math.floor(ANIM_TOTAL_MS / steps))
+        : ANIM_TOTAL_MS;
+
+      for (let i = 0; i < steps; i++) {
+        await sleep(perStepMs);
+        setCurrent((prev) => Math.min(100, prev + 1));
+      }
+
+      await sleep(LAND_PAUSE_MS);
+
+      setCurrent((prev) => {
+        if (LADDER_UP[prev]) return LADDER_UP[prev];
+        if (SNAKE_BACK[prev]) return SNAKE_BACK[prev];
+        return prev;
+      });
+
+      clearTimeout(hideId);
+    } finally {
+      animatingRef.current = false;
+      setIsAnimating(false);
     }
-
-    await sleep(LAND_PAUSE_MS);
-
-    setCurrent((prev) => {
-      if (LADDER_UP[prev]) return LADDER_UP[prev];
-      if (SNAKE_BACK[prev]) return SNAKE_BACK[prev];
-      return prev;
-    });
-
-    animatingRef.current = false;
   };
 
   return (
     <div className="inline-flex flex-col-reverse items-center justify-center gap-3">
-      <div className="flex gap-2">
-        <Dice onClick={advance} />
+      <div className="relative">
+        <Dice
+          onClick={advance}
+          disabled={isAnimating}
+          aria-busy={isAnimating}
+        />
+        {showRoll && roll != null && (
+          <div
+            className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md border text-sm bg-white shadow transition-opacity duration-300"
+            aria-live="polite"
+          >
+            🎲 {roll}
+          </div>
+        )}
       </div>
 
       {Array.from({ length: rows }).map((_, row) => {
