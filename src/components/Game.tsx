@@ -198,7 +198,7 @@ export default function Game() {
     }
   };
   return (
-    <div className="inline-flex flex-col-reverse items-center justify-center gap-3 relative">
+    <div className="inline-flex flex-col-reverse items-center justify-center gap-3 relative p-6 bg-gradient-to-br from-yellow-50 via-white to-yellow-100 rounded-xl shadow-lg">
       {/* Dice + rolled badge */}
       <div className="relative">
         <Dice
