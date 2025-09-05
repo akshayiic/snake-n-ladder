@@ -150,7 +150,62 @@ class SocketConnection {
     return () => this.ws?.removeEventListener("message", handler);
   }
 
-  listenForPosition(onPosition: (position: number) => void) {
+  listenRoomPositions(
+    onUpdate: (u: { userId: string; position: number }) => void
+  ) {
+    if (!this.ws) return;
+
+    const toNum = (v: unknown): number | null => {
+      const n = typeof v === "string" ? Number(v) : (v as number);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const handler = (event: MessageEvent) => {
+      let parsed: any;
+      try {
+        parsed =
+          typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+      } catch {
+        return;
+      }
+
+      const msg = parsed?.data ?? parsed;
+
+      if (msg?.event === "get-room-user-position") {
+        const list: any[] = msg?.payload?.positions ?? [];
+        if (Array.isArray(list)) {
+          for (const item of list) {
+            const userId = item?.userId;
+            const num = toNum(item?.position);
+            if (typeof userId === "string" && num !== null) {
+              const clamped = Math.max(1, Math.min(100, num));
+              onUpdate({ userId, position: clamped });
+            }
+          }
+        }
+        return;
+      }
+
+      const list2: any[] = msg?.payload?.positions;
+      if (Array.isArray(list2)) {
+        for (const item of list2) {
+          const userId = item?.userId;
+          const num = toNum(item?.position);
+          if (typeof userId === "string" && num !== null) {
+            const clamped = Math.max(1, Math.min(100, num));
+            onUpdate({ userId, position: clamped });
+          }
+        }
+      }
+    };
+
+    this.ws.addEventListener("message", handler);
+    return () => this.ws?.removeEventListener("message", handler);
+  }
+
+  listenForPositionUpdates(
+    onUpdate: (u: { userId: string; position: number }) => void
+  ) {
     if (!this.ws) return;
 
     const handler = (event: MessageEvent) => {
@@ -159,18 +214,24 @@ class SocketConnection {
         parsed =
           typeof event.data === "string" ? JSON.parse(event.data) : event.data;
       } catch {
-        console.warn("Bad JSON:", event.data);
         return;
       }
 
-      const envelope = parsed?.data ?? parsed;
-      if (envelope?.event !== "set-position") return;
+      const msg = parsed?.data ?? parsed;
 
-      const position = envelope?.payload?.position;
-      if (typeof position === "number") {
-        onPosition(position);
-      } else {
-        console.warn("Unexpected position payload:", envelope?.payload);
+      if (msg?.event === "set-position") {
+        const { userId, position } = msg?.payload ?? {};
+        if (typeof userId === "string" && Number.isFinite(+position)) {
+          const clamped = Math.max(1, Math.min(100, Number(position)));
+
+          onUpdate({ userId, position: clamped });
+        }
+        return;
+      }
+
+      if (typeof msg?.userId === "string" && Number.isFinite(msg?.position)) {
+        const clamped = Math.max(1, Math.min(100, Number(msg.position)));
+        onUpdate({ userId: msg.userId, position: clamped });
       }
     };
 

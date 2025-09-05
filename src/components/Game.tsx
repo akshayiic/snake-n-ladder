@@ -1,6 +1,6 @@
 import { socket } from "@/lib/socket";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "./ui/button";
 
@@ -83,9 +83,19 @@ const Person = ({ color }: { color: string }) => (
 const rows = 10;
 const cols = 10;
 
+const colorOf = (id: string) => {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  const idx = Math.abs(h) % COLORS.length;
+  return COLORS[idx];
+};
+
 export default function Game() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+
+  const roomId = useMemo(() => params.get("roomId") || "", [params]);
+  const me = useMemo(() => localStorage.getItem("userId") || "", []);
 
   const [current, setCurrent] = useState(1);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -93,25 +103,24 @@ export default function Game() {
   const [showRoll, setShowRoll] = useState(false);
 
   const [players, setPlayers] = useState<string[]>([]);
-
   const [positions, setPositions] = useState<Record<string, number>>({});
 
   const animatingRef = useRef(false);
 
   useEffect(() => {
-    const roomId = params.get("roomId");
     if (!roomId) {
       navigate("/join", { replace: true });
       return;
     }
-    const off = socket.listenForRoomUsers((users) => {
-      setPlayers(users);
+    const offUsers = socket.listenForRoomUsers((userIds) => {
+      setPlayers(userIds);
     });
     socket.getRoomUsers(roomId);
-    return () => off?.();
-  }, [navigate, params]);
+    return () => offUsers?.();
+  }, [navigate, roomId]);
 
   useEffect(() => {
+    if (players.length === 0) return;
     setPositions((prev) => {
       const next: Record<string, number> = {};
       for (const p of players) next[p] = prev[p] ?? 1;
@@ -120,10 +129,32 @@ export default function Game() {
   }, [players]);
 
   useEffect(() => {
-    if (players.length < 2) return;
-    if (!players) return;
-    socket.setPositionForUser(localStorage.getItem("userId") || "", current);
-  }, [current]);
+    const off = socket.listenForPositionUpdates(({ userId, position }) => {
+      if (userId === me) return;
+      setPositions((prev) =>
+        prev[userId] === position ? prev : { ...prev, [userId]: position }
+      );
+    });
+    return () => off?.();
+  }, []);
+
+  useEffect(() => {
+    const offBatch = socket.listenRoomPositions(({ userId, position }) => {
+      setPositions((prev) =>
+        prev[userId] === position ? prev : { ...prev, [userId]: position }
+      );
+    });
+
+    return () => offBatch?.();
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!me || !roomId) return;
+    socket.setPositionForUser(me, current);
+    setPositions((prev) =>
+      prev[me] === current ? prev : { ...prev, [me]: current }
+    );
+  }, [current, me, roomId]);
 
   const advance = async () => {
     if (animatingRef.current) return;
@@ -160,13 +191,13 @@ export default function Game() {
       setIsAnimating(false);
     }
   };
-
   return (
     <div className="inline-flex flex-col-reverse items-center justify-center gap-3 relative">
+      {/* Dice + rolled badge */}
       <div className="relative">
         <Dice
           onClick={advance}
-          disabled={isAnimating}
+          disabled={isAnimating || players.length < 2}
           aria-busy={isAnimating}
         />
         {showRoll && roll != null && (
@@ -176,6 +207,7 @@ export default function Game() {
         )}
       </div>
 
+      {/* Board */}
       {Array.from({ length: rows }).map((_, row) => {
         const base = row * cols;
         const isLTR = row % 2 === 0;
@@ -198,23 +230,17 @@ export default function Game() {
                     isLadder={[3, 14, 46, 57].includes(n)}
                   />
 
+                  {/* render all tokens for users in this cell */}
                   {playersHere.length > 0 && (
                     <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 place-items-center">
-                      {playersHere.slice(0, 4).map((p, i) => (
-                        <Person key={p} color={COLORS[i % COLORS.length]} />
+                      {playersHere.slice(0, 4).map((p) => (
+                        <Person key={p} color={colorOf(p)} />
                       ))}
-
                       {playersHere.length > 4 && (
                         <div className="absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 text-[10px] px-1 py-0.5 rounded bg-black text-white">
                           +{playersHere.length - 4}
                         </div>
                       )}
-                    </div>
-                  )}
-
-                  {n === current && (
-                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                      <div className="h-4 w-4 rounded-full border-2 border-white shadow bg-gray-800" />
                     </div>
                   )}
                 </div>
@@ -224,7 +250,8 @@ export default function Game() {
         );
       })}
 
-      {players.length < 2 && (
+      {/* Waiting overlay */}
+      {(!roomId || players.length < 2) && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/50">
           <div className="px-6 py-4 rounded-lg bg-white text-black shadow-lg">
             Waiting for others to join...
