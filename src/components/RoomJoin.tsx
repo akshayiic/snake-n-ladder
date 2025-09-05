@@ -117,13 +117,11 @@ function CreateRoomDialog({}: {
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [maxPlayers, setMaxPlayers] = useState(4);
 
   const submit = () => {
     socket.createRoom(name);
     setOpen(false);
     setName("");
-    setMaxPlayers(4);
 
     socket.getRooms();
   };

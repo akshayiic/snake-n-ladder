@@ -3,12 +3,6 @@ import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "./ui/button";
-import lad1 from "../../public/ladder.svg";
-import lad2 from "../../public/ladder1.svg";
-import lad3 from "../../public/ladder2.svg";
-import lad4 from "../../public/ladder3.svg";
-import snake1 from "../../public/snake1.svg";
-import snake2 from "../../public/snake2.svg";
 
 type BoxProps = {
   text: number;
@@ -46,7 +40,7 @@ const Box = ({
     className={cn(
       "w-15 h-15 border flex items-center justify-center text-lg select-none",
       {
-        "bg-[url('/snakeface.svg')]": isSnake,
+        "bg-[url('/snakeface.svg')] text-red-500": isSnake,
         "bg-orange-500": isLadder,
       }
     )}
@@ -114,6 +108,18 @@ export default function Game() {
   const animatingRef = useRef(false);
 
   useEffect(() => {
+    if (socket && socket.ws) {
+      socket.send({
+        event: "get-room-user-position",
+        payload: {
+          roomId,
+        },
+      });
+      socket.listenForPositionUpdates(() => {});
+    }
+  }, [socket, socket?.ws]);
+
+  useEffect(() => {
     if (!roomId) {
       navigate("/join", { replace: true });
       return;
@@ -142,7 +148,7 @@ export default function Game() {
       );
     });
     return () => off?.();
-  }, []);
+  }, [socket]);
 
   useEffect(() => {
     const offBatch = socket.listenRoomPositions(({ userId, position }) => {
@@ -199,7 +205,6 @@ export default function Game() {
   };
   return (
     <div className="inline-flex flex-col-reverse items-center justify-center gap-3 relative p-6 bg-gradient-to-br from-yellow-50 via-white to-yellow-100 rounded-xl shadow-lg">
-      {/* Dice + rolled badge */}
       <div className="relative">
         <Dice
           onClick={advance}
@@ -213,7 +218,6 @@ export default function Game() {
         )}
       </div>
 
-      {/* Board */}
       {Array.from({ length: rows }).map((_, row) => {
         const base = row * cols;
         const isLTR = row % 2 === 0;
@@ -231,12 +235,11 @@ export default function Game() {
                 <div className="relative" key={n}>
                   <Box
                     text={n}
-                    onClick={() => { }}
+                    onClick={() => {}}
                     isSnake={[26, 44, 98, 90, 61].includes(n)}
                     isLadder={[3, 14, 46, 57].includes(n)}
                   />
 
-                  {/* render all tokens for users in this cell */}
                   {playersHere.length > 0 && (
                     <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 place-items-center">
                       {playersHere.slice(0, 4).map((p) => (
@@ -256,7 +259,6 @@ export default function Game() {
         );
       })}
 
-      {/* Waiting overlay */}
       {(!roomId || players.length < 2) && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/50">
           <div className="px-6 py-4 rounded-lg bg-white text-black shadow-lg">
@@ -270,60 +272,6 @@ export default function Game() {
           </Button>
         </div>
       )}
-
-
-      <img
-        src={lad1}
-        alt="ladders"
-        className="absolute top-[4vh] left-[10vh] w-full h-full pointer-events-none rotate-14 opacity-80"
-      />
-
-      <img
-        src={lad2}
-        alt="ladders"
-        className="absolute top-[12vh] left-[55vh] w-full h-full pointer-events-none rotate-40 opacity-80"
-      />
-
-      <img
-        src={lad3}
-        alt="ladders"
-        className="absolute top-[-36vh] left-[13vh] w-full h-full pointer-events-none -rotate-20 opacity-80"
-      />
-
-      <img
-        src={lad4}
-        alt="ladders"
-        className="absolute top-[-12vh] left-[2vh] w-full h-full pointer-events-none rotate-50 opacity-80"
-      />
-
-      <img
-        src={snake1}
-        alt="ladders"
-        className="absolute top-[2vh] left-[-26vh] w-full h-[70%] pointer-events-none rotate-12 opacity-80"
-      />
-      <img
-        src={snake2}
-        alt="ladders"
-        className="absolute top-[73vh] h-[25%] left-[31vh]  pointer-events-none rotate-25 opacity-80"
-      />
-
-      <img
-        src={snake1}
-        alt="ladders"
-        className="absolute top-[13vh] left-[39vh] w-full h-[50%] pointer-events-none  opacity-80"
-      />
-
-      <img
-        src={snake1}
-        alt="ladders"
-        className="absolute top-[33vh] left-[-31vh] w-full h-[30%] pointer-events-none -rotate-20  opacity-80"
-      />
-
-      <img
-        src={snake1}
-        alt="ladders"
-        className="absolute top-[42vh] left-[8vh] w-full h-[48%] pointer-events-none -rotate-56  opacity-80"
-      />
     </div>
   );
 }

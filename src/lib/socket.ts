@@ -11,7 +11,7 @@ export const Events = {
 type RoomUsersPayload = { users: string[] };
 
 class SocketConnection {
-  private ws?: WebSocket;
+  ws?: WebSocket;
   private isConnected = false;
 
   async connect(url: string) {
