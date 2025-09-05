@@ -1,0 +1,21 @@
+<svg width="200" height="200" viewBox="0 0 200 600" xmlns="http://www.w3.org/2000/svg">
+  <defs> 
+    <linearGradient id="snakeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="green" />
+      <stop offset="50%" stop-color="limegreen" />
+      <stop offset="100%" stop-color="darkgreen" />
+    </linearGradient>
+  </defs>
+
+  <path d="M 100 20 
+           Q 150 70, 100 120 
+           Q 50 170, 100 220 
+           Q 150 270, 100 320 
+           Q 50 370, 100 420 
+           Q 150 470, 100 520 
+           Q 50 570, 100 620"
+        fill="none" 
+        stroke="url(#snakeGradient)" 
+        stroke-width="12" 
+        stroke-linecap="round" />
+</svg>
