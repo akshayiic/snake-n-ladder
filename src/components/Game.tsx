@@ -1,5 +1,7 @@
+import { socket } from "@/lib/socket";
 import { cn } from "@/lib/utils";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "./ui/button";
 
 type BoxProps = {
@@ -63,33 +65,74 @@ const Dice = ({ onClick, disabled }: { onClick: any; disabled?: boolean }) => {
   );
 };
 
-const Person = () => (
-  <div className="absolute inset-0 flex items-center justify-center">
-    <div className="h-5 w-5 rounded-full bg-black border-2 border-white shadow" />
-  </div>
+const COLORS = [
+  "#111827",
+  "#ef4444",
+  "#10b981",
+  "#3b82f6",
+  "#f59e0b",
+  "#8b5cf6",
+];
+const Person = ({ color }: { color: string }) => (
+  <div
+    className="h-4 w-4 rounded-full border-2 border-white shadow absolute"
+    style={{ backgroundColor: color }}
+  />
 );
 
 const rows = 10;
 const cols = 10;
 
 export default function Game() {
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+
   const [current, setCurrent] = useState(1);
   const [isAnimating, setIsAnimating] = useState(false);
   const [roll, setRoll] = useState<number | null>(null);
   const [showRoll, setShowRoll] = useState(false);
 
+  const [players, setPlayers] = useState<string[]>([]);
+
+  const [positions, setPositions] = useState<Record<string, number>>({});
+
   const animatingRef = useRef(false);
+
+  useEffect(() => {
+    const roomId = params.get("roomId");
+    if (!roomId) {
+      navigate("/join", { replace: true });
+      return;
+    }
+    const off = socket.listenForRoomUsers((users) => {
+      setPlayers(users);
+    });
+    socket.getRoomUsers(roomId);
+    return () => off?.();
+  }, [navigate, params]);
+
+  useEffect(() => {
+    setPositions((prev) => {
+      const next: Record<string, number> = {};
+      for (const p of players) next[p] = prev[p] ?? 1;
+      return next;
+    });
+  }, [players]);
+
+  useEffect(() => {
+    if (players.length < 2) return;
+    if (!players) return;
+    socket.setPositionForUser(localStorage.getItem("userId") || "", current);
+  }, [current]);
 
   const advance = async () => {
     if (animatingRef.current) return;
     animatingRef.current = true;
     setIsAnimating(true);
-
     try {
       const r = Math.floor(Math.random() * 6) + 1;
       setRoll(r);
       setShowRoll(true);
-
       const hideId = setTimeout(() => setShowRoll(false), 1200);
 
       const start = current;
@@ -105,7 +148,6 @@ export default function Game() {
       }
 
       await sleep(LAND_PAUSE_MS);
-
       setCurrent((prev) => {
         if (LADDER_UP[prev]) return LADDER_UP[prev];
         if (SNAKE_BACK[prev]) return SNAKE_BACK[prev];
@@ -120,7 +162,7 @@ export default function Game() {
   };
 
   return (
-    <div className="inline-flex flex-col-reverse items-center justify-center gap-3">
+    <div className="inline-flex flex-col-reverse items-center justify-center gap-3 relative">
       <div className="relative">
         <Dice
           onClick={advance}
@@ -128,10 +170,7 @@ export default function Game() {
           aria-busy={isAnimating}
         />
         {showRoll && roll != null && (
-          <div
-            className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md border text-sm bg-white shadow transition-opacity duration-300"
-            aria-live="polite"
-          >
+          <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md border text-sm bg-white shadow">
             🎲 {roll}
           </div>
         )}
@@ -146,20 +185,58 @@ export default function Game() {
 
         return (
           <div className="flex" key={row}>
-            {cells.map((n) => (
-              <div className="relative" key={n}>
-                <Box
-                  text={n}
-                  onClick={() => {}}
-                  isSnake={[26, 44, 98, 90, 61].includes(n)}
-                  isLadder={[3, 14, 46, 57].includes(n)}
-                />
-                {n === current && <Person />}
-              </div>
-            ))}
+            {cells.map((n) => {
+              const playersHere = players.filter(
+                (p) => (positions[p] ?? 1) === n
+              );
+              return (
+                <div className="relative" key={n}>
+                  <Box
+                    text={n}
+                    onClick={() => {}}
+                    isSnake={[26, 44, 98, 90, 61].includes(n)}
+                    isLadder={[3, 14, 46, 57].includes(n)}
+                  />
+
+                  {playersHere.length > 0 && (
+                    <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 place-items-center">
+                      {playersHere.slice(0, 4).map((p, i) => (
+                        <Person key={p} color={COLORS[i % COLORS.length]} />
+                      ))}
+
+                      {playersHere.length > 4 && (
+                        <div className="absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 text-[10px] px-1 py-0.5 rounded bg-black text-white">
+                          +{playersHere.length - 4}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {n === current && (
+                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                      <div className="h-4 w-4 rounded-full border-2 border-white shadow bg-gray-800" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         );
       })}
+
+      {players.length < 2 && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/50">
+          <div className="px-6 py-4 rounded-lg bg-white text-black shadow-lg">
+            Waiting for others to join...
+          </div>
+          <Button
+            className="mt-3 bg-purple-500 text-white"
+            onClick={() => navigate("/join")}
+          >
+            Join another room
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
