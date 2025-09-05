@@ -7,6 +7,7 @@ function App() {
     <>
 
       <h1>Snake n ladder</h1>
+      test
 
     </>
   )
