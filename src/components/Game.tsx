@@ -3,6 +3,12 @@ import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "./ui/button";
+import lad1 from "../../public/ladder.svg";
+import lad2 from "../../public/ladder1.svg";
+import lad3 from "../../public/ladder2.svg";
+import lad4 from "../../public/ladder3.svg";
+import snake1 from "../../public/snake1.svg";
+import snake2 from "../../public/snake2.svg";
 
 type BoxProps = {
   text: number;
@@ -40,7 +46,7 @@ const Box = ({
     className={cn(
       "w-15 h-15 border flex items-center justify-center text-lg select-none",
       {
-        "bg-purple-500": isSnake,
+        "bg-[url('/snakeface.svg')]": isSnake,
         "bg-orange-500": isLadder,
       }
     )}
@@ -225,7 +231,7 @@ export default function Game() {
                 <div className="relative" key={n}>
                   <Box
                     text={n}
-                    onClick={() => {}}
+                    onClick={() => { }}
                     isSnake={[26, 44, 98, 90, 61].includes(n)}
                     isLadder={[3, 14, 46, 57].includes(n)}
                   />
@@ -264,6 +270,60 @@ export default function Game() {
           </Button>
         </div>
       )}
+
+
+      <img
+        src={lad1}
+        alt="ladders"
+        className="absolute top-[4vh] left-[10vh] w-full h-full pointer-events-none rotate-14 opacity-80"
+      />
+
+      <img
+        src={lad2}
+        alt="ladders"
+        className="absolute top-[12vh] left-[55vh] w-full h-full pointer-events-none rotate-40 opacity-80"
+      />
+
+      <img
+        src={lad3}
+        alt="ladders"
+        className="absolute top-[-36vh] left-[13vh] w-full h-full pointer-events-none -rotate-20 opacity-80"
+      />
+
+      <img
+        src={lad4}
+        alt="ladders"
+        className="absolute top-[-12vh] left-[2vh] w-full h-full pointer-events-none rotate-50 opacity-80"
+      />
+
+      <img
+        src={snake1}
+        alt="ladders"
+        className="absolute top-[2vh] left-[-26vh] w-full h-[70%] pointer-events-none rotate-12 opacity-80"
+      />
+      <img
+        src={snake2}
+        alt="ladders"
+        className="absolute top-[73vh] h-[25%] left-[31vh]  pointer-events-none rotate-25 opacity-80"
+      />
+
+      <img
+        src={snake1}
+        alt="ladders"
+        className="absolute top-[13vh] left-[39vh] w-full h-[50%] pointer-events-none  opacity-80"
+      />
+
+      <img
+        src={snake1}
+        alt="ladders"
+        className="absolute top-[33vh] left-[-31vh] w-full h-[30%] pointer-events-none -rotate-20  opacity-80"
+      />
+
+      <img
+        src={snake1}
+        alt="ladders"
+        className="absolute top-[42vh] left-[8vh] w-full h-[48%] pointer-events-none -rotate-56  opacity-80"
+      />
     </div>
   );
 }
