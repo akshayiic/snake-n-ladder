@@ -6,6 +6,7 @@ export const Events = {
   CREATE_ROOM: "create-room",
   GET_ROOM: "get-room",
   GET_ROOMS_USERS: "get-rooms-users",
+  PING: "ping",
 };
 
 type RoomUsersPayload = { users: string[] };
@@ -23,6 +24,7 @@ class SocketConnection {
     this.ws.onopen = () => {
       console.log("✅ Connected to", url);
       this.isConnected = true;
+      setInterval(() => this.ping(), 20_000);
     };
 
     this.ws.onclose = () => {
@@ -34,6 +36,15 @@ class SocketConnection {
       console.error("⚠️ WebSocket error", err);
       this.isConnected = false;
     };
+  }
+
+  ping() {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.send({
+        event: Events.PING,
+        payload: null,
+      });
+    }
   }
 
   send(message: any) {
