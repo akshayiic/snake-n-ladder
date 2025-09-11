@@ -104,6 +104,7 @@ export default function Game() {
 
   const [players, setPlayers] = useState<string[]>([]);
   const [positions, setPositions] = useState<Record<string, number>>({});
+  const [chance, setChance] = useState("");
 
   const animatingRef = useRef(false);
 
@@ -147,8 +148,32 @@ export default function Game() {
         prev[userId] === position ? prev : { ...prev, [userId]: position }
       );
     });
-    return () => off?.();
+
+    if (socket && socket.ws)
+      socket.ws.onmessage = (msg) => {
+        const data = JSON.parse(msg.data);
+
+        if (data.event === "send-user-chance") {
+          setChance(data.payload.userId);
+        }
+      };
+
+    return () => {
+      off?.();
+    };
   }, [socket]);
+
+  useEffect(() => {
+    if (socket && players.length > 1) {
+      socket.send({
+        event: "send-user-chance",
+        payload: {
+          userId: players[0],
+          roomId,
+        },
+      });
+    }
+  }, [players, socket]);
 
   useEffect(() => {
     const offBatch = socket.listenRoomPositions(({ userId, position }) => {
@@ -201,14 +226,22 @@ export default function Game() {
     } finally {
       animatingRef.current = false;
       setIsAnimating(false);
+      socket?.send({
+        event: "end-turn",
+        payload: {
+          userId: chance,
+          roomId,
+        },
+      });
     }
   };
+
   return (
     <div className="inline-flex flex-col-reverse items-center justify-center gap-3 relative p-6 bg-gradient-to-br from-yellow-50 via-white to-yellow-100 rounded-xl shadow-lg">
       <div className="relative">
         <Dice
           onClick={advance}
-          disabled={isAnimating || players.length < 2}
+          disabled={isAnimating || players.length < 2 || chance !== me}
           aria-busy={isAnimating}
         />
         {showRoll && roll != null && (
